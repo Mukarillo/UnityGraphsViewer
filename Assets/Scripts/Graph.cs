@@ -1,8 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Graph : MonoBehaviour {
+
+    public Dropdown dropdown;
 
     public Transform pointPrefab;
     [Range(10, 100)]
@@ -29,6 +32,24 @@ public class Graph : MonoBehaviour {
             point.SetParent(transform, false);
             mPoints[i] = point;
         }
+
+        dropdown.ClearOptions();
+        dropdown.AddOptions(new List<string>{
+            "Sine",
+            "Sine2D",
+            "MultiSine",
+            "MultiSine2D",
+            "Ripple",
+            "Cylinder (Star)",
+            "Sphere (Star)",
+            "Torus (Star)"
+        });
+
+        dropdown.onValueChanged.AddListener(ChangeFunction);
+    }
+
+    public void ChangeFunction(int f){
+        function = (GraphFunctionName)f;
     }
 
     private void Update(){
