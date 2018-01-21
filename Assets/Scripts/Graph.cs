@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using MathParserTK;
 
 public class Graph : MonoBehaviour {
 
@@ -9,65 +8,132 @@ public class Graph : MonoBehaviour {
     [Range(10, 100)]
     public int resolution = 10;
     public bool animate = true;
+    public GraphFunctionName function;
+
+    static GraphFunction[] functions = {
+        SineFunction, Sine2DFunction, MultiSineFunction, MultiSine2DFunction, Ripple, Cylinder, Sphere, Torus
+    };
 
     private Transform[] mPoints = new Transform[]{};
-    private MathParser mMathParser = new MathParser('.');
-    private string mStringFunction;
-    private bool mShowGraph = false;
 
     private void Awake(){
         float step = 2f / resolution;
         Vector3 scale = Vector3.one * step;
-        scale.z = 3f;
         Vector3 position = Vector3.zero;
 
-        mPoints = new Transform[resolution];
-        for (int i = 0; i < resolution; i++)
+        mPoints = new Transform[resolution*resolution];
+        for (int i = 0; i < mPoints.Length; i++)
         {
             Transform point = Instantiate(pointPrefab);
-            position.x = (i + 0.5f) * step - 1f;
-            point.localPosition = position;
             point.localScale = scale;
             point.SetParent(transform, false);
-
             mPoints[i] = point;
         }
-
-        SetGraphVisibility(mShowGraph);
     }
 
     private void Update(){
-        if (!mShowGraph) return;
+        var t = Time.time;
+        GraphFunction f = functions[(int)function];
+        float step = 2f / resolution;
 
-        for (int i = 0; i < mPoints.Length; i++)
+        for (int i = 0, z = 0; z < resolution; z++)
         {
-            Transform point = mPoints[i];
-            Vector3 position = point.localPosition;
-
-            var fClone = mStringFunction;
-            fClone = fClone.Replace("x", "("+position.x.ToString()+")").Replace("t", (animate ? Time.time.ToString() : "0"));
-            double functionResult = 0;
-
-            if(!mMathParser.TryParse(fClone, out functionResult, true)){
-                UIManager.instance.SetMessageInInputField("Invalid Function");
-                continue;
+            float v = (z + 0.5f) * step - 1f;
+            for (int x = 0; x < resolution; x++, i++)
+            {
+                float u = (x + 0.5f) * step - 1f;
+                mPoints[i].localPosition = f(u, v, t);
             }
-
-            position.y = (float)functionResult;
-            point.localPosition = position;
         }
     }
 
-    public void SetStringFunction(string function){
-        mStringFunction = function;
-        mShowGraph = true;
-        SetGraphVisibility(mShowGraph);
+    const float pi = Mathf.PI;
+
+    static Vector3 SineFunction(float x, float z, float t)
+    {
+        Vector3 p;
+        p.x = x;
+        p.y = Mathf.Sin(pi * (x + t));
+        p.z = z;
+        return p;
     }
 
-    private void SetGraphVisibility(bool show){
-        for (int i = 0; i < mPoints.Length; i++)
-        {
-            mPoints[i].gameObject.SetActive(show);
-        }
+    static Vector3 Sine2DFunction(float x, float z, float t)
+    {
+        Vector3 p;
+        p.x = x;
+        p.y = Mathf.Sin(pi * (x + t));
+        p.y += Mathf.Sin(pi * (z + t));
+        p.y *= 0.5f;
+        p.z = z;
+        return p;
+    }
+
+    static Vector3 MultiSineFunction(float x, float z, float t)
+    {
+        Vector3 p;
+        p.x = x;
+        p.y = Mathf.Sin(pi * (x + t));
+        p.y += Mathf.Sin(2f * pi * (x + 2f * t)) / 2f;
+        p.y *= 2f / 3f;
+        p.z = z;
+        return p;
+    }
+
+    static Vector3 MultiSine2DFunction(float x, float z, float t)
+    {
+        Vector3 p;
+        p.x = x;
+        p.y = 4f * Mathf.Sin(pi * (x + z + t / 2f));
+        p.y += Mathf.Sin(pi * (x + t));
+        p.y += Mathf.Sin(2f * pi * (z + 2f * t)) * 0.5f;
+        p.y *= 1f / 5.5f;
+        p.z = z;
+        return p;
+    }
+
+    static Vector3 Ripple(float x, float z, float t)
+    {
+        Vector3 p;
+        float d = Mathf.Sqrt(x * x + z * z);
+        p.x = x;
+        p.y = Mathf.Sin(pi * (4f * d - t));
+        p.y /= 1f + 10f * d;
+        p.z = z;
+        return p;
+    }
+
+    static Vector3 Cylinder(float u, float v, float t)
+    {
+        Vector3 p;
+        float r = 0.8f + Mathf.Sin(pi * (6f * u + 2f * v + t)) * 0.2f;
+        p.x = r * Mathf.Sin(pi * u);
+        p.y = v;
+        p.z = r * Mathf.Cos(pi * u);
+        return p;
+    }
+
+    static Vector3 Sphere(float u, float v, float t)
+    {
+        Vector3 p;
+        float r = 0.8f + Mathf.Sin(pi * (6f * u + t)) * 0.1f;
+        r += Mathf.Sin(pi * (4f * v + t)) * 0.1f;
+        float s = r * Mathf.Cos(pi * 0.5f * v);
+        p.x = s * Mathf.Sin(pi * u);
+        p.y = r * Mathf.Sin(pi * 0.5f * v);
+        p.z = s * Mathf.Cos(pi * u);
+        return p;
+    }
+
+    static Vector3 Torus(float u, float v, float t)
+    {
+        Vector3 p;
+        float r1 = 0.65f + Mathf.Sin(pi * (6f * u + t)) * 0.1f;
+        float r2 = 0.2f + Mathf.Sin(pi * (4f * v + t)) * 0.05f;
+        float s = r2 * Mathf.Cos(pi * v) + r1;
+        p.x = s * Mathf.Sin(pi * u);
+        p.y = r2 * Mathf.Sin(pi * v);
+        p.z = s * Mathf.Cos(pi * u);
+        return p;
     }
 }
